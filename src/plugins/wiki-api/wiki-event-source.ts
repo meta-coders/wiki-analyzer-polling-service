@@ -1,9 +1,5 @@
 import EventSource from 'eventsource';
-import { defer, Observable, ReplaySubject } from 'rxjs';
-import { delay, multicast, refCount, retryWhen } from 'rxjs/operators';
-
-const RETRY_DELAY = 1000;
-const CACHE_SIZE = 5;
+import { defer, Observable } from 'rxjs';
 
 export default class WikiEventSource {
   constructor(private readonly url: string) {}
@@ -49,10 +45,6 @@ export default class WikiEventSource {
           console.log('[WikiEventSource]: Connection to EventStreams closed');
         };
       });
-    }).pipe(
-      // TODO: Add exponential backoff
-      retryWhen((errors) => errors.pipe(delay(RETRY_DELAY))),
-      multicast(new ReplaySubject(CACHE_SIZE), refCount()),
-    );
+    });
   }
 }
