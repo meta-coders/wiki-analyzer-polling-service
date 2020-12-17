@@ -1,6 +1,6 @@
 import fp from 'fastify-plugin';
-import { Observable, ReplaySubject } from 'rxjs';
-import { delay, multicast, refCount, retryWhen } from 'rxjs/operators';
+import { Observable } from 'rxjs';
+import { delay, retryWhen, share } from 'rxjs/operators';
 import WikiEventSource from './wiki-event-source';
 
 export interface WikiApiServiceOptions {
@@ -12,17 +12,17 @@ export const autoConfig = {
 };
 
 const RETRY_DELAY = 1000;
-const CACHE_SIZE = 5;
 
 export class WikiApiService {
   private readonly eventStream: Observable<any>;
 
   constructor(url: string) {
     const source = new WikiEventSource(url);
+
     this.eventStream = source.connect().pipe(
       // TODO: Add exponential backoff
       retryWhen((errors) => errors.pipe(delay(RETRY_DELAY))),
-      multicast(new ReplaySubject(CACHE_SIZE), refCount()),
+      share(),
     );
   }
 

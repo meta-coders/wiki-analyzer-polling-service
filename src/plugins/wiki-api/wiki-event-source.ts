@@ -20,12 +20,15 @@ export default class WikiEventSource {
         };
 
         source.onerror = (event: MessageEvent<string>) => {
-          console.error('[WikiEventSource]: Connection error occurred:', event);
+          console.error(
+            '[WikiEventSource]: Connection error occurred:',
+            JSON.stringify(event),
+          );
           subscriber.error(event);
         };
 
         source.onmessage = (event: MessageEvent<string>) => {
-          console.log('[WikiEventSource]: Incoming event:', event);
+          // console.log('[WikiEventSource]: Incoming event:', JSON.stringify(event));
           try {
             const message = JSON.parse(event.data);
             subscriber.next(message);
@@ -37,8 +40,6 @@ export default class WikiEventSource {
             subscriber.error(error);
           }
         };
-
-        subscriber.complete();
 
         return () => {
           source.close();
