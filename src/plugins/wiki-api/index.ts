@@ -1,6 +1,6 @@
 import fp from 'fastify-plugin';
 import { Observable } from 'rxjs';
-import { delay, retryWhen, share } from 'rxjs/operators';
+import { delay, filter, retryWhen, share, switchMap } from 'rxjs/operators';
 import WikiEvent from '../../interfaces/WikiEvent';
 import WikiEventSource from './wiki-event-source';
 
@@ -27,8 +27,22 @@ export class WikiApiService {
     );
   }
 
-  public getEventStream() {
+  public getEventStream(): Observable<WikiEvent> {
     return this.eventStream;
+  }
+
+  public getUsersEventStream(
+    users: Observable<string[]>,
+  ): Observable<WikiEvent> {
+    return users.pipe(
+      switchMap((usernames: string[]) => {
+        return this.eventStream.pipe(
+          filter((event): boolean => {
+            return usernames.includes(event.user);
+          }),
+        );
+      }),
+    );
   }
 }
 

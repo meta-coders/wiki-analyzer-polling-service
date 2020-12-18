@@ -1,8 +1,7 @@
 import { FastifyInstance, FastifyPluginAsync } from 'fastify';
 import { EMPTY, fromEvent, Observable, of, OperatorFunction } from 'rxjs';
-import { filter, map, mergeMap, pluck, switchMap } from 'rxjs/operators';
+import { concatMap, filter, map, pluck } from 'rxjs/operators';
 import WebSocket from 'ws';
-import WikiEvent from '../interfaces/WikiEvent';
 
 function validateMessage(): OperatorFunction<any, string | string[]> {
   return (input: Observable<any>) => {
@@ -31,6 +30,7 @@ function mapUsersToArray(): OperatorFunction<string | string[], string[]> {
   };
 }
 
+// TODO move to another microservice
 const usersRecentChanges: FastifyPluginAsync = async (
   fastify: FastifyInstance,
 ): Promise<void> => {
@@ -39,12 +39,11 @@ const usersRecentChanges: FastifyPluginAsync = async (
     { websocket: true },
     function usersRecentChangesHandler(connection) {
       const socket: WebSocket = connection.socket;
-      const eventStream = this.wikiApiService.getEventStream();
 
-      const eventStreamByUsernames = fromEvent(socket, 'message').pipe(
+      const users = fromEvent(socket, 'message').pipe(
         pluck('data'),
         filter((message): message is string => typeof message === 'string'),
-        mergeMap((message) => {
+        concatMap((message) => {
           try {
             return of(JSON.parse(message));
           } catch {
@@ -53,16 +52,11 @@ const usersRecentChanges: FastifyPluginAsync = async (
         }),
         validateMessage(),
         mapUsersToArray(),
-        switchMap((users) => {
-          return eventStream.pipe(
-            filter((event: WikiEvent): boolean => {
-              return users.includes(event.user);
-            }),
-          );
-        }),
       );
 
-      const subscribtion = eventStreamByUsernames.subscribe({
+      const eventStream = this.wikiApiService.getUsersEventStream(users);
+
+      const subscribtion = eventStream.subscribe({
         next: (message) => {
           if (socket.readyState !== WebSocket.OPEN) {
             return;
