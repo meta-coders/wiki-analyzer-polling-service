@@ -1,6 +1,7 @@
 import fp from 'fastify-plugin';
 import { Observable } from 'rxjs';
 import { delay, retryWhen, share } from 'rxjs/operators';
+import WikiEvent from '../../interfaces/WikiEvent';
 import WikiEventSource from './wiki-event-source';
 
 export interface WikiApiServiceOptions {
@@ -14,7 +15,7 @@ export const autoConfig = {
 const RETRY_DELAY = 1000;
 
 export class WikiApiService {
-  private readonly eventStream: Observable<any>;
+  private readonly eventStream: Observable<WikiEvent>;
 
   constructor(url: string) {
     const source = new WikiEventSource(url);

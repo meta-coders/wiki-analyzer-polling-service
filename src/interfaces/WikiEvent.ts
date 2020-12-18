@@ -1,4 +1,4 @@
-export const enum WikiNamespace {
+export enum WikiNamespace {
   MAIN = 0,
   TALK = 1,
   USER = 2,
