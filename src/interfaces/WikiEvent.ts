@@ -43,7 +43,7 @@ export interface WikiBaseEvent {
   bot: boolean;
   server_url: string;
   meta: {
-    // topic,partition,offset
+    // TODO: topic,partition,offset
     uri: string;
     request_id: string;
     id: string;
@@ -71,10 +71,24 @@ export interface WikiCategorizeEvent extends WikiBaseEvent {
   type: WikiEventType.CATEGORIZE;
 }
 
-export interface WikiChangeEvent extends WikiBaseEvent {
+export interface WikiNewEvent extends WikiBaseEvent {
   id: number;
-  type: WikiEventType.EDIT | WikiEventType.NEW | WikiEventType.EXTERNAL;
+  type: WikiEventType.NEW;
   minor: boolean;
+  patrolled?: boolean;
+  length: {
+    new: number;
+  };
+  revision: {
+    new: number;
+  };
+}
+
+export interface WikiEditEvent extends WikiBaseEvent {
+  id: number;
+  type: WikiEventType.EDIT;
+  minor: boolean;
+  patrolled?: boolean;
   length: {
     old: number;
     new: number;
@@ -85,6 +99,23 @@ export interface WikiChangeEvent extends WikiBaseEvent {
   };
 }
 
-type WikiEvent = WikiLogEvent | WikiCategorizeEvent | WikiChangeEvent;
+export interface WikiExternalEvent extends WikiBaseEvent {
+  id: number;
+  type: WikiEventType.EXTERNAL;
+  minor: boolean;
+  length: {
+    new: number;
+  };
+  revision: {
+    new: number;
+  };
+}
+
+type WikiEvent =
+  | WikiLogEvent
+  | WikiCategorizeEvent
+  | WikiNewEvent
+  | WikiEditEvent
+  | WikiExternalEvent;
 
 export default WikiEvent;

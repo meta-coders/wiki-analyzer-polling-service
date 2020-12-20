@@ -8,13 +8,15 @@ import WikiEvent, {
 export default class WikiEventSource {
   constructor(private readonly url: string) {}
 
-  public connect(): Observable<WikiEvent> {
+  public connect(date?: Date): Observable<WikiEvent> {
     return defer(() => {
       return new Observable((subscriber: Subscriber<WikiEvent>) => {
         console.log(
           `[WikiEventSource]: Connecting to EventStreams at ${this.url}`,
         );
-        const source = new EventSource(this.url);
+        const source = new EventSource(
+          !!date ? this.url + `?since=${date.toISOString()}` : this.url,
+        );
 
         source.onopen = () => {
           console.log(

@@ -23,6 +23,7 @@
   },
   "homepage": "https://github.com/meta-coders/wiki-analyzer#readme",
   "dependencies": {
+    "axios": "^0.21.0",
     "eventsource": "^1.0.7",
     "fastify": "^3.0.0",
     "fastify-autoload": "^3.0.2",
