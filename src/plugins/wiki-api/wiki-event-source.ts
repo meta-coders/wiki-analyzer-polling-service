@@ -29,6 +29,7 @@ export default class WikiEventSource {
             '[WikiEventSource]: Connection error occurred:',
             JSON.stringify(event),
           );
+          // TODO: throw custom error
           subscriber.error(event);
         };
 

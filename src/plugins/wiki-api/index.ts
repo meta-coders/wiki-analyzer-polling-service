@@ -1,10 +1,13 @@
 import fp from 'fastify-plugin';
-import { defer, Observable } from 'rxjs';
+import { from, Observable, of } from 'rxjs';
 import { concatMap, filter, share, switchMap } from 'rxjs/operators';
 import DetailedWikiEvent, {
   DetailedWikiEditEvent,
 } from '../../interfaces/DetailedWikiEvent';
-import WikiEvent, { WikiEventType } from '../../interfaces/WikiEvent';
+import WikiEvent, {
+  WikiEditEvent,
+  WikiEventType,
+} from '../../interfaces/WikiEvent';
 import retryBackoff from '../../utils/retry-backoff';
 import wikiCompare from './wiki-compare';
 import WikiEventSource from './wiki-event-source';
@@ -59,23 +62,27 @@ export class WikiApiService {
   ): Observable<DetailedWikiEvent> {
     return this.wikiEventSource.connect(since).pipe(
       concatMap((event: WikiEvent) => {
-        return defer(async () => {
-          if (event.type === WikiEventType.EDIT) {
-            // TODO: batch processing
-            const isExist = await wikiPageExistence(event);
-            if (isExist) {
-              const diff = await wikiCompare(event);
-              (event as DetailedWikiEditEvent).revision.diff = diff;
-            }
-            (event as DetailedWikiEditEvent).revision.missing = !isExist;
-            return event as DetailedWikiEditEvent;
-          }
-          return event;
-        }).pipe(
-          retryBackoff(MAX_RETRY_ATTEMPTS, RETRY_DELAY, 'WikiApiService'),
-        );
+        if (event.type === WikiEventType.EDIT) {
+          return from(this.getPageDifference(event)).pipe(
+            retryBackoff(MAX_RETRY_ATTEMPTS, RETRY_DELAY, 'WikiApiService'),
+          );
+        }
+        return of(event);
       }),
     );
+  }
+
+  private async getPageDifference(
+    editEvent: WikiEditEvent,
+  ): Promise<DetailedWikiEditEvent> {
+    // TODO: batch processing
+    const isExist = await wikiPageExistence(editEvent);
+    if (isExist) {
+      const diff = await wikiCompare(editEvent);
+      (editEvent as DetailedWikiEditEvent).revision.diff = diff;
+    }
+    (editEvent as DetailedWikiEditEvent).revision.missing = !isExist;
+    return editEvent as DetailedWikiEditEvent;
   }
 }
 
