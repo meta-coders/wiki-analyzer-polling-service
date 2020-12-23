@@ -1,5 +1,5 @@
 import fp from 'fastify-plugin';
-import { from, Observable, of } from 'rxjs';
+import { defer, Observable, of } from 'rxjs';
 import { concatMap, filter, share, switchMap } from 'rxjs/operators';
 import DetailedWikiEvent, {
   DetailedWikiEditEvent,
@@ -10,7 +10,10 @@ import WikiEvent, {
 } from '../../interfaces/WikiEvent';
 import retryBackoff from '../../utils/retry-backoff';
 import wikiCompare from './wiki-compare';
-import WikiEventSource from './wiki-event-source';
+import BaseWikiEventSource, {
+  WikiEventSource,
+  WikiEventSourceSinceDate,
+} from './wiki-event-source';
 import wikiPageExistence from './wiki-page-existence';
 
 export interface WikiApiServiceOptions {
@@ -25,11 +28,11 @@ const MAX_RETRY_ATTEMPTS = 5;
 const RETRY_DELAY = 1000;
 
 export class WikiApiService {
-  private readonly wikiEventSource: WikiEventSource;
+  private readonly wikiEventSource: BaseWikiEventSource;
   private readonly eventStream: Observable<WikiEvent>;
 
-  constructor(url: string) {
-    this.wikiEventSource = new WikiEventSource(url);
+  constructor(private readonly url: string) {
+    this.wikiEventSource = new WikiEventSource(this.url);
     this.eventStream = this.wikiEventSource
       .connect()
       .pipe(
@@ -57,13 +60,15 @@ export class WikiApiService {
   }
 
   // TODO: https://en.wikipedia.org/wiki/Special:ApiSandbox#action=query&format=json&prop=revisions&titles=Pet_door&formatversion=2&rvprop=content
-  public getDetailedRecentChanges(
-    since: Date = new Date(),
-  ): Observable<DetailedWikiEvent> {
-    return this.wikiEventSource.connect(since).pipe(
+  public getDetailedRecentChanges(since: Date): Observable<DetailedWikiEvent> {
+    const eventSource = new WikiEventSourceSinceDate(this.url, since);
+    return eventSource.connect().pipe(
+      retryBackoff(MAX_RETRY_ATTEMPTS, RETRY_DELAY, 'WikiApiService'),
       concatMap((event: WikiEvent) => {
         if (event.type === WikiEventType.EDIT) {
-          return from(this.getPageDifference(event)).pipe(
+          // TODO defer
+          // TODO: batch processing
+          return defer(() => this.getPageDifference(event)).pipe(
             retryBackoff(MAX_RETRY_ATTEMPTS, RETRY_DELAY, 'WikiApiService'),
           );
         }
@@ -75,7 +80,6 @@ export class WikiApiService {
   private async getPageDifference(
     editEvent: WikiEditEvent,
   ): Promise<DetailedWikiEditEvent> {
-    // TODO: batch processing
     const isExist = await wikiPageExistence(editEvent);
     if (isExist) {
       const diff = await wikiCompare(editEvent);

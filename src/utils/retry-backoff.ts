@@ -17,7 +17,7 @@ export default function retryBackoff<T>(
               return throwError(error);
             }
 
-            console.log(`[${tag}]: Error: ${error}, Attempt: ${retryAttempt}`);
+            console.log(`[${tag}]: ${error}, Attempt: ${retryAttempt}`);
 
             return timer(timeout);
           }),

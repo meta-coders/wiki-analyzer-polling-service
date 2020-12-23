@@ -1,20 +1,21 @@
 import axios from 'axios';
-import WikiEvent from '../../interfaces/WikiEvent';
+import { WikiEditEvent } from '../../interfaces/WikiEvent';
 
 export default async function wikiPageExistence(
-  event: WikiEvent,
+  event: WikiEditEvent,
 ): Promise<boolean> {
-  const { server_url, title } = event;
+  const { server_url, revision } = event;
   const { data: response } = await axios.get(`${server_url}/w/api.php`, {
     params: {
       action: 'query',
       format: 'json',
       formatversion: 2,
-      titles: title,
+      revids: revision.old + '|' + revision.new,
     },
   });
 
-  const [page] = response.query.pages;
-
-  return !page.missing;
+  return !(
+    !!response.query.badrevids ||
+    (!!response.query.pages && response.query.pages.length !== 1)
+  );
 }

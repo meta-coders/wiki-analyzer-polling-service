@@ -58,7 +58,7 @@ export interface WikiBaseEvent {
 
 export interface WikiLogEvent extends WikiBaseEvent {
   id?: number;
-  log_params: string | Array<any> | any;
+  log_params: any;
   log_id: number;
   log_type: string;
   log_action: string;
