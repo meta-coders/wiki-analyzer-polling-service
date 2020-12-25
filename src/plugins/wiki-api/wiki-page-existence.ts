@@ -10,7 +10,8 @@ export default async function wikiPageExistence(
       action: 'query',
       format: 'json',
       formatversion: 2,
-      revids: revision.old + '|' + revision.new,
+      utf8: 1,
+      revids: Object.values(revision).join('|'),
     },
   });
 

@@ -1,20 +1,14 @@
 import fp from 'fastify-plugin';
 import { defer, Observable, of } from 'rxjs';
 import { concatMap, filter, share, switchMap } from 'rxjs/operators';
-import DetailedWikiEvent, {
-  DetailedWikiEditEvent,
-} from '../../interfaces/DetailedWikiEvent';
-import WikiEvent, {
-  WikiEditEvent,
-  WikiEventType,
-} from '../../interfaces/WikiEvent';
+import DetailedWikiEvent from '../../interfaces/DetailedWikiEvent';
+import WikiEvent, { WikiEventType } from '../../interfaces/WikiEvent';
+import { mapWikiEditEventToDetailedWikiEditEvent } from '../../utils/detailed-wiki-event-mappers';
 import retryBackoff from '../../utils/retry-backoff';
-import wikiCompare from './wiki-compare';
 import BaseWikiEventSource, {
   WikiEventSource,
   WikiEventSourceSinceDate,
 } from './wiki-event-source';
-import wikiPageExistence from './wiki-page-existence';
 
 export interface WikiApiServiceOptions {
   url: string;
@@ -59,16 +53,16 @@ export class WikiApiService {
     );
   }
 
-  // TODO: https://en.wikipedia.org/wiki/Special:ApiSandbox#action=query&format=json&prop=revisions&titles=Pet_door&formatversion=2&rvprop=content
   public getDetailedRecentChanges(since: Date): Observable<DetailedWikiEvent> {
     const eventSource = new WikiEventSourceSinceDate(this.url, since);
     return eventSource.connect().pipe(
       retryBackoff(MAX_RETRY_ATTEMPTS, RETRY_DELAY, 'WikiApiService'),
       concatMap((event: WikiEvent) => {
         if (event.type === WikiEventType.EDIT) {
-          // TODO defer
-          // TODO: batch processing
-          return defer(() => this.getPageDifference(event)).pipe(
+          // batch processing
+          return defer(() =>
+            mapWikiEditEventToDetailedWikiEditEvent(event),
+          ).pipe(
             retryBackoff(MAX_RETRY_ATTEMPTS, RETRY_DELAY, 'WikiApiService'),
           );
         }
@@ -76,23 +70,10 @@ export class WikiApiService {
       }),
     );
   }
-
-  private async getPageDifference(
-    editEvent: WikiEditEvent,
-  ): Promise<DetailedWikiEditEvent> {
-    const isExist = await wikiPageExistence(editEvent);
-    if (isExist) {
-      const diff = await wikiCompare(editEvent);
-      (editEvent as DetailedWikiEditEvent).revision.diff = diff;
-    }
-    (editEvent as DetailedWikiEditEvent).revision.missing = !isExist;
-    return editEvent as DetailedWikiEditEvent;
-  }
 }
 
 export default fp<WikiApiServiceOptions>(async (fastify, options) => {
   const wikiApiService = new WikiApiService(options.url);
-
   fastify.decorate('wikiApiService', wikiApiService);
 });
 

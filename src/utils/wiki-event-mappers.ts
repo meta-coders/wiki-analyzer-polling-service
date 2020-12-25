@@ -65,13 +65,13 @@ export const mapEventToWikiCategorizeEvent = (
 
 export const mapEventToWikiNewEvent = (event: any): WikiNewEvent => {
   const base = parseEventBasePart(event);
-  const { length, revision } = event;
-  return {
+  const { id, length, minor, patrolled, revision } = event;
+
+  const newEvent: WikiNewEvent = {
     ...base,
-    id: event.id,
+    id,
     type: WikiEventType.NEW,
-    minor: event.minor,
-    patrolled: event.patrolled,
+    minor,
     length: {
       new: length.new,
     },
@@ -79,26 +79,30 @@ export const mapEventToWikiNewEvent = (event: any): WikiNewEvent => {
       new: revision.new,
     },
   };
+
+  return patrolled !== undefined ? { ...newEvent, patrolled } : newEvent;
 };
 
 export const mapEventToWikiEditEvent = (event: any): WikiEditEvent => {
   const base = parseEventBasePart(event);
-  const { length, revision } = event;
-  return {
+  const { id, length, minor, patrolled, revision } = event;
+
+  const editEvent: WikiEditEvent = {
     ...base,
-    id: event.id,
+    id,
     type: WikiEventType.EDIT,
-    minor: event.minor,
-    patrolled: event.patrolled,
+    minor,
     length: {
       old: length.old,
       new: length.new,
     },
     revision: {
-      old: length.old,
+      old: revision.old,
       new: revision.new,
     },
   };
+
+  return patrolled !== undefined ? { ...editEvent, patrolled } : editEvent;
 };
 
 export const mapEventToWikiExternalEvent = (event: any): WikiExternalEvent => {

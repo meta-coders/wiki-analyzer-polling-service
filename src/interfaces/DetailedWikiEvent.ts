@@ -1,9 +1,9 @@
 import {
   WikiCategorizeEvent,
-  WikiEditEvent,
   WikiExternalEvent,
   WikiLogEvent,
   WikiNewEvent,
+  WikiEditEvent,
 } from './WikiEvent';
 
 // export interface DetailedWikiNewEvent extends WikiNewEvent {
