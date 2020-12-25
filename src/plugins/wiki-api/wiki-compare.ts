@@ -22,9 +22,11 @@ export default async function wikiCompare(
   editEvent: WikiEditEvent,
 ): Promise<string> {
   const { revision, server_url } = editEvent;
+
   const { data: response } = await axios.get<CompareDTO>(
     `${server_url}/w/api.php`,
     {
+      timeout: 3000,
       params: {
         action: 'compare',
         format: 'json',

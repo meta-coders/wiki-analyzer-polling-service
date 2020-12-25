@@ -1,8 +1,15 @@
 import fp from 'fastify-plugin';
 import { defer, Observable, of } from 'rxjs';
-import { concatMap, filter, share, switchMap } from 'rxjs/operators';
+import {
+  concatMap,
+  filter,
+  share,
+  switchMap,
+  windowCount,
+} from 'rxjs/operators';
 import DetailedWikiEvent from '../../interfaces/DetailedWikiEvent';
 import WikiEvent, { WikiEventType } from '../../interfaces/WikiEvent';
+import concurrentConcat from '../../utils/concurrentConcat';
 import { mapWikiEditEventToDetailedWikiEditEvent } from '../../utils/detailed-wiki-event-mappers';
 import retryBackoff from '../../utils/retry-backoff';
 import BaseWikiEventSource, {
@@ -18,8 +25,11 @@ export const autoConfig = {
   url: 'https://stream.wikimedia.org/v2/stream/recentchange',
 };
 
-const MAX_RETRY_ATTEMPTS = 5;
+const MAX_RETRY_ATTEMPTS = 10;
 const RETRY_DELAY = 1000;
+
+const MAX_REQ_RETRY_ATTEMPTS = 5;
+const REQ_RETRY_DELAY = 1000;
 
 export class WikiApiService {
   private readonly wikiEventSource: BaseWikiEventSource;
@@ -55,18 +65,29 @@ export class WikiApiService {
 
   public getDetailedRecentChanges(since: Date): Observable<DetailedWikiEvent> {
     const eventSource = new WikiEventSourceSinceDate(this.url, since);
+
     return eventSource.connect().pipe(
       retryBackoff(MAX_RETRY_ATTEMPTS, RETRY_DELAY, 'WikiApiService'),
-      concatMap((event: WikiEvent) => {
-        if (event.type === WikiEventType.EDIT) {
-          // batch processing
-          return defer(() =>
-            mapWikiEditEventToDetailedWikiEditEvent(event),
-          ).pipe(
-            retryBackoff(MAX_RETRY_ATTEMPTS, RETRY_DELAY, 'WikiApiService'),
-          );
-        }
-        return of(event);
+      windowCount(250),
+      concatMap((windowEvents: Observable<WikiEvent>) => {
+        return windowEvents.pipe(
+          concurrentConcat(
+            (event: WikiEvent): Observable<DetailedWikiEvent> => {
+              if (event.type === WikiEventType.EDIT) {
+                return defer(() =>
+                  mapWikiEditEventToDetailedWikiEditEvent(event),
+                ).pipe(
+                  retryBackoff(
+                    MAX_REQ_RETRY_ATTEMPTS,
+                    REQ_RETRY_DELAY,
+                    'WikiApiServiceRequest:' + event.meta.id,
+                  ),
+                );
+              }
+              return of(event);
+            },
+          ),
+        );
       }),
     );
   }
