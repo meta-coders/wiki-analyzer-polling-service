@@ -26,7 +26,7 @@ export default async function wikiCompare(
   const { data: response } = await axios.get<CompareDTO>(
     `${server_url}/w/api.php`,
     {
-      timeout: 3000,
+      timeout: 7000,
       params: {
         action: 'compare',
         format: 'json',
@@ -40,6 +40,9 @@ export default async function wikiCompare(
   );
 
   if ((response as CompareFailure).error) {
+    if ((response as CompareFailure).error.code === 'missingcontent') {
+      return '';
+    }
     throw new Error((response as CompareFailure).error.info);
   }
 

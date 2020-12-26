@@ -6,7 +6,7 @@ export default async function wikiPageExistence(
 ): Promise<boolean> {
   const { server_url, revision } = event;
   const { data: response } = await axios.get(`${server_url}/w/api.php`, {
-    timeout: 2000,
+    timeout: 2500,
     params: {
       action: 'query',
       format: 'json',

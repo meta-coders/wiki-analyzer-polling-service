@@ -18,7 +18,12 @@ export const mapWikiEditEventToDetailedWikiEditEvent = async (
   };
 
   if (isExist) {
-    detailedEditEvent.revision.diff = await wikiCompare(editEvent);
+    const diff = await wikiCompare(editEvent);
+    if (diff.length === 0) {
+      detailedEditEvent.revision.missing = true;
+    } else {
+      detailedEditEvent.revision.diff = diff;
+    }
   }
 
   return detailedEditEvent;
