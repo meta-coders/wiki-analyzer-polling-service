@@ -21,7 +21,7 @@ import BaseWikiEventSource, {
 } from './wiki-event-source';
 
 const RETRY_DELAY = 1000;
-const WINDOW_COUNT = 250;
+const WINDOW_COUNT = 300;
 
 const MAX_REQ_RETRY_ATTEMPTS = 5;
 const REQ_RETRY_DELAY = 1000;

@@ -43,7 +43,6 @@ export interface WikiBaseEvent {
   bot: boolean;
   server_url: string;
   meta: {
-    // TODO: topic,partition,offset
     uri: string;
     request_id: string;
     id: string;

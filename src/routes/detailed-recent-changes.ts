@@ -1,7 +1,8 @@
 import { FastifyInstance, FastifyPluginAsync } from 'fastify';
 import { EMPTY, fromEvent, of } from 'rxjs';
-import { concatMap, filter, pluck, switchMap } from 'rxjs/operators';
+import { concatMap, filter, map, pluck, switchMap } from 'rxjs/operators';
 import WebSocket from 'ws';
+import subscribeClient from '../utils/subscribe-client';
 
 const detailedRecentChanges: FastifyPluginAsync = async (
   fastify: FastifyInstance,
@@ -25,27 +26,10 @@ const detailedRecentChanges: FastifyPluginAsync = async (
         switchMap((date) => {
           return this.wikiApiService.getDetailedRecentChanges(date);
         }),
+        map((wikiEvent) => JSON.stringify(wikiEvent)),
       );
 
-      const subscribtion = eventStream.subscribe({
-        next: (message) => {
-          if (socket.readyState !== WebSocket.OPEN) {
-            return;
-          }
-          socket.send(JSON.stringify(message));
-        },
-        error: (error) => {
-          // TODO: error.code
-          socket.close(1014, error.message);
-        },
-        complete: () => {
-          socket.close();
-        },
-      });
-
-      socket.on('close', () => {
-        subscribtion.unsubscribe();
-      });
+      subscribeClient(eventStream, socket);
     },
   );
 };
