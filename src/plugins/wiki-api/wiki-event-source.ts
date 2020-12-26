@@ -1,4 +1,5 @@
 import EventSource from 'eventsource';
+import { FastifyLoggerInstance } from 'fastify';
 import { defer, Observable, Subscriber } from 'rxjs';
 import { skipWhile, tap } from 'rxjs/operators';
 import WikiEvent, {
@@ -22,7 +23,10 @@ const mappers = {
 };
 
 export default abstract class BaseWikiEventSource {
-  constructor(protected readonly url: string) {}
+  constructor(
+    protected readonly url: string,
+    protected readonly logger: FastifyLoggerInstance,
+  ) {}
 
   public connect(): Observable<WikiEvent> {
     return defer(() => {
@@ -35,7 +39,9 @@ export default abstract class BaseWikiEventSource {
 
         return () => {
           source.close();
-          console.log(`[WikiEventSource]: Connection to EventStreams closed`);
+          this.logger.info(
+            '[WikiEventSource]: Connection to EventStreams closed',
+          );
         };
       });
     });
@@ -45,17 +51,15 @@ export default abstract class BaseWikiEventSource {
 
   private onOpenHandler() {
     return () => {
-      console.log(`[WikiEventSource]: EventStreams connected at ${this.url}`);
+      this.logger.info(
+        `[WikiEventSource]: EventStreams connected at ${this.url}`,
+      );
     };
   }
 
   private onErrorHandler(subscriber: Subscriber<WikiEvent>) {
     return (event: MessageEvent<string>) => {
-      console.error(
-        `[WikiEventSource]: Connection error occurred: ${JSON.stringify(
-          event,
-        )}`,
-      );
+      this.logger.error('[WikiEventSource]: Connection error occurred');
       subscriber.error(
         new Error('Connection error occurred to the event source'),
       );
@@ -64,7 +68,9 @@ export default abstract class BaseWikiEventSource {
 
   private onMessageHandler(subscriber: Subscriber<WikiEvent>) {
     return (event: MessageEvent<string>) => {
-      // console.log(`[WikiEventSource]: Incoming event: ${JSON.stringify(event)}`);
+      this.logger.debug(
+        `[WikiEventSource]: Incoming event: ${JSON.stringify(event)}`,
+      );
       try {
         const message = JSON.parse(event.data);
         if (this.filterEvent(message)) {
@@ -74,7 +80,7 @@ export default abstract class BaseWikiEventSource {
           }
         }
       } catch (error) {
-        console.error(
+        this.logger.error(
           `[WikiEventSource]: Parsing event error occurred: ${error}`,
         );
         subscriber.error(error);
@@ -88,19 +94,21 @@ export default abstract class BaseWikiEventSource {
 }
 
 export class WikiEventSource extends BaseWikiEventSource {
-  constructor(url: string) {
-    super(url);
-  }
-
   protected getSource(): EventSource {
-    console.log(`[WikiEventSource]: Connecting to EventStreams at ${this.url}`);
+    this.logger.info(
+      `[WikiEventSource]: Connecting to EventStreams at ${this.url}`,
+    );
     return new EventSource(this.url);
   }
 }
 
 export class WikiEventSourceSinceDate extends BaseWikiEventSource {
-  constructor(url: string, private startDate: Date = new Date()) {
-    super(url);
+  constructor(
+    url: string,
+    private startDate: Date = new Date(),
+    logger: FastifyLoggerInstance,
+  ) {
+    super(url, logger);
   }
 
   public connect(): Observable<WikiEvent> {
@@ -123,7 +131,9 @@ export class WikiEventSourceSinceDate extends BaseWikiEventSource {
   }
 
   protected getSource(): EventSource {
-    console.log(`[WikiEventSource]: Connecting to EventStreams at ${this.url}`);
+    this.logger.info(
+      `[WikiEventSource]: Connecting to EventStreams at ${this.url}`,
+    );
     return new EventSource(`${this.url}?since=${this.startDate.toISOString()}`);
   }
 }

@@ -1,6 +1,8 @@
+import { FastifyLoggerInstance } from 'fastify';
 import fp from 'fastify-plugin';
-import { defer, Observable, of } from 'rxjs';
+import { defer, Observable, of, throwError } from 'rxjs';
 import {
+  catchError,
   concatMap,
   delay,
   retryWhen,
@@ -29,9 +31,9 @@ export class WikiApiService {
   private readonly url: string;
   private readonly wikiEventSource: BaseWikiEventSource;
 
-  constructor(url: string) {
+  constructor(url: string, private readonly logger: FastifyLoggerInstance) {
     this.url = new URL(url).href;
-    this.wikiEventSource = new WikiEventSource(this.url);
+    this.wikiEventSource = new WikiEventSource(this.url, this.logger);
     this.eventStream = this.wikiEventSource.connect().pipe(
       retryWhen((errors) => {
         return errors.pipe(delay(RETRY_DELAY));
@@ -45,7 +47,11 @@ export class WikiApiService {
   }
 
   public getDetailedRecentChanges(since: Date): Observable<DetailedWikiEvent> {
-    const eventSource = new WikiEventSourceSinceDate(this.url, since);
+    const eventSource = new WikiEventSourceSinceDate(
+      this.url,
+      since,
+      this.logger,
+    );
 
     return eventSource.connect().pipe(
       retryWhen((errors) => {
@@ -63,6 +69,12 @@ export class WikiApiService {
                   retryBackoff({
                     initialInterval: REQ_RETRY_DELAY,
                     maxRetries: MAX_REQ_RETRY_ATTEMPTS,
+                  }),
+                  catchError((error) => {
+                    this.logger.error(
+                      `[WikiApiService]: Parsing event error occurred: ${error}`,
+                    );
+                    return throwError(error);
                   }),
                 );
               }
@@ -86,7 +98,7 @@ export const autoConfig: WikiApiServiceOptions = {
 };
 
 export default fp<WikiApiServiceOptions>(async (fastify, options) => {
-  const wikiApiService = new WikiApiService(options.url);
+  const wikiApiService = new WikiApiService(options.url, fastify.log);
   fastify.decorate('wikiApiService', wikiApiService);
 });
 
