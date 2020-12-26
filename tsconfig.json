@@ -1,0 +1,9 @@
+{
+    "extends": "fastify-tsconfig",
+    "compilerOptions": {
+        "esModuleInterop": true,
+        "noUnusedLocals": false,
+        "outDir": "dist"
+    },
+    "include": ["src/**/*.ts"]
+}
