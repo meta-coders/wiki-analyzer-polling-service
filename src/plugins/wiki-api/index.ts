@@ -1,9 +1,16 @@
 import fp from 'fastify-plugin';
 import { defer, Observable, of } from 'rxjs';
-import { concatMap, share, windowCount } from 'rxjs/operators';
+import {
+  concatMap,
+  delay,
+  retryWhen,
+  share,
+  windowCount,
+} from 'rxjs/operators';
+import { URL } from 'url';
 import DetailedWikiEvent from '../../interfaces/DetailedWikiEvent';
 import WikiEvent, { WikiEventType } from '../../interfaces/WikiEvent';
-import concurrentConcat from '../../utils/concurrentConcat';
+import concurrentConcat from '../../utils/concurrent-concat';
 import { mapWikiEditEventToDetailedWikiEditEvent } from '../../utils/detailed-wiki-event-mappers';
 import retryBackoff from '../../utils/retry-backoff';
 import BaseWikiEventSource, {
@@ -11,32 +18,26 @@ import BaseWikiEventSource, {
   WikiEventSourceSinceDate,
 } from './wiki-event-source';
 
-export interface WikiApiServiceOptions {
-  url: string;
-}
-
-export const autoConfig = {
-  url: 'https://stream.wikimedia.org/v2/stream/recentchange',
-};
-
-const MAX_RETRY_ATTEMPTS = 10;
 const RETRY_DELAY = 1000;
+const WINDOW_COUNT = 250;
 
 const MAX_REQ_RETRY_ATTEMPTS = 5;
 const REQ_RETRY_DELAY = 1000;
 
 export class WikiApiService {
-  private readonly wikiEventSource: BaseWikiEventSource;
   private readonly eventStream: Observable<WikiEvent>;
+  private readonly url: string;
+  private readonly wikiEventSource: BaseWikiEventSource;
 
-  constructor(private readonly url: string) {
+  constructor(url: string) {
+    this.url = new URL(url).href;
     this.wikiEventSource = new WikiEventSource(this.url);
-    this.eventStream = this.wikiEventSource
-      .connect()
-      .pipe(
-        retryBackoff(MAX_RETRY_ATTEMPTS, RETRY_DELAY, 'WikiApiService'),
-        share(),
-      );
+    this.eventStream = this.wikiEventSource.connect().pipe(
+      retryWhen((errors) => {
+        return errors.pipe(delay(RETRY_DELAY));
+      }),
+      share(),
+    );
   }
 
   public getEventStream(): Observable<WikiEvent> {
@@ -47,8 +48,10 @@ export class WikiApiService {
     const eventSource = new WikiEventSourceSinceDate(this.url, since);
 
     return eventSource.connect().pipe(
-      retryBackoff(MAX_RETRY_ATTEMPTS, RETRY_DELAY, 'WikiApiService'),
-      windowCount(250),
+      retryWhen((errors) => {
+        return errors.pipe(delay(RETRY_DELAY));
+      }),
+      windowCount(WINDOW_COUNT),
       concatMap((windowEvents: Observable<WikiEvent>) => {
         return windowEvents.pipe(
           concurrentConcat(
@@ -57,11 +60,10 @@ export class WikiApiService {
                 return defer(() =>
                   mapWikiEditEventToDetailedWikiEditEvent(event),
                 ).pipe(
-                  retryBackoff(
-                    MAX_REQ_RETRY_ATTEMPTS,
-                    REQ_RETRY_DELAY,
-                    'WikiApiServiceRequest:' + event.meta.id,
-                  ),
+                  retryBackoff({
+                    initialInterval: REQ_RETRY_DELAY,
+                    maxRetries: MAX_REQ_RETRY_ATTEMPTS,
+                  }),
                 );
               }
               return of(event);
@@ -72,6 +74,16 @@ export class WikiApiService {
     );
   }
 }
+
+export interface WikiApiServiceOptions {
+  url: string;
+}
+
+export const autoConfig: WikiApiServiceOptions = {
+  url:
+    process.env.WIKI_API ||
+    'https://stream.wikimedia.org/v2/stream/recentchange',
+};
 
 export default fp<WikiApiServiceOptions>(async (fastify, options) => {
   const wikiApiService = new WikiApiService(options.url);
