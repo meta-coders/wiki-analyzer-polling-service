@@ -1,12 +1,6 @@
 import fp from 'fastify-plugin';
 import { defer, Observable, of } from 'rxjs';
-import {
-  concatMap,
-  filter,
-  share,
-  switchMap,
-  windowCount,
-} from 'rxjs/operators';
+import { concatMap, share, windowCount } from 'rxjs/operators';
 import DetailedWikiEvent from '../../interfaces/DetailedWikiEvent';
 import WikiEvent, { WikiEventType } from '../../interfaces/WikiEvent';
 import concurrentConcat from '../../utils/concurrentConcat';
@@ -47,20 +41,6 @@ export class WikiApiService {
 
   public getEventStream(): Observable<WikiEvent> {
     return this.eventStream;
-  }
-
-  public getUsersEventStream(
-    users: Observable<string[]>,
-  ): Observable<WikiEvent> {
-    return users.pipe(
-      switchMap((usernames: string[]) => {
-        return this.eventStream.pipe(
-          filter((event): boolean => {
-            return usernames.includes(event.user);
-          }),
-        );
-      }),
-    );
   }
 
   public getDetailedRecentChanges(since: Date): Observable<DetailedWikiEvent> {

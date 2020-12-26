@@ -13,7 +13,7 @@ import {
   mapEventToWikiExternalEvent,
 } from '../../utils/wiki-event-mappers';
 
-const mapers = {
+const mappers = {
   [WikiEventType.EDIT]: mapEventToWikiEditEvent,
   [WikiEventType.NEW]: mapEventToWikiNewEvent,
   [WikiEventType.LOG]: mapEventToWikiLogEvent,
@@ -68,9 +68,9 @@ export default abstract class BaseWikiEventSource {
       try {
         const message = JSON.parse(event.data);
         if (this.filterEvent(message)) {
-          const maper = mapers[message.type];
-          if (!!maper) {
-            subscriber.next(maper(message));
+          const mapper = mappers[message.type];
+          if (!!mapper) {
+            subscriber.next(mapper(message));
           }
         }
       } catch (error) {
