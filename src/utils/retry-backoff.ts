@@ -2,7 +2,7 @@ import { MonoTypeOperatorFunction, Observable, throwError, timer } from 'rxjs';
 import { concatMap, retryWhen } from 'rxjs/operators';
 
 const getInterval = (initialInterval: number, attempt: number) => {
-  return initialInterval * Math.exp(attempt);
+  return Math.floor(initialInterval * Math.exp(attempt));
 };
 
 export interface RetryBackoffConfig {
