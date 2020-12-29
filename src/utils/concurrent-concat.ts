@@ -50,8 +50,11 @@ export default function concurrentConcat<T, R>(
   concurrent?: number,
 ): OperatorFunction<T, R> {
   return pipe(
-    mergeMap(mapper, concurrent),
-    map((value: R, index: number): IndexedValue<R> => ({ value, index })),
+    mergeMap(
+      mapper,
+      (_, value: R, index: number): IndexedValue<R> => ({ value, index }),
+      concurrent,
+    ),
     sortByIndex(),
     map(({ value }) => value),
   );

@@ -1,8 +1,8 @@
-// This file contains code that we reuse between our tests.
 import Fastify from 'fastify';
 import fp from 'fastify-plugin';
 import App from '../src/app';
 import tap from 'tap';
+import { TestScheduler } from 'rxjs/testing';
 
 export type Test = typeof tap['Test']['prototype'];
 
@@ -29,4 +29,10 @@ async function build(t: Test) {
   return app;
 }
 
-export { config, build };
+async function getDeepEqualTestScheduler(t: Test): Promise<TestScheduler> {
+  return new TestScheduler((actual, expected) => {
+    t.deepEqual(actual, expected);
+  });
+}
+
+export { config, build, getDeepEqualTestScheduler };

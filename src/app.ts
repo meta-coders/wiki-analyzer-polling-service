@@ -3,7 +3,6 @@ import AutoLoad, { AutoloadPluginOptions } from 'fastify-autoload';
 import { FastifyPluginAsync } from 'fastify';
 import WebsocketPlugin from 'fastify-websocket';
 
-// TODO: add wiki-api variable
 export type AppOptions = {
   // Place your custom options for app below here.
 } & Partial<AutoloadPluginOptions>;
