@@ -15,7 +15,7 @@ const detailedRecentChanges: FastifyPluginAsync = async (
 
       const eventStream = fromEvent(socket, 'message').pipe(
         pluck('data'),
-        filter((message): message is string => typeof message !== 'string'),
+        filter((message): message is string => typeof message === 'string'),
         concatMap((message) => {
           const date = Date.parse(message);
           if (date === NaN) {
